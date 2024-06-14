@@ -1,0 +1,65 @@
+---
+- name: Configure Docker and Deploy Container
+  hosts: prod
+  become: yes
+
+  tasks:
+    - name: Install aptitude (preferred by Ansible)
+      apt:
+        name: aptitude
+        state: present
+
+    - name: Install required system packages
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+
+    - name: Install Docker GPG APT key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository to apt sources
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Install Docker
+      apt:
+        name: docker-ce
+        state: present
+
+    - name: Install pipx module via pip
+      pip:
+        name: pipx
+        state: present
+
+    - name: Install Python Docker module via pipx
+      pipx:
+        name: docker
+        state: present
+
+    - name: Pull the default image from Docker Hub
+      community.docker.docker_image_pull:
+        name: mrunalsh/finance-me-app:latest
+        platform: amd64
+      register: pulled_image
+
+    - name: Run Docker container
+      community.docker.docker_container:
+        name: my_httpd_container
+        image: "{{ pulled_image.image }}"
+        ports:
+          - "8082:8082"
+        state: started
+
+    - name: Ensure Docker service is enabled and running
+      systemd:
+        name: docker
+        enabled: yes
+        state: started

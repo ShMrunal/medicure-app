@@ -1,0 +1,19 @@
+---
+- name: Pull and run the mrunalsh/medicure-app Docker container
+  hosts: all
+  become: yes
+  tasks:
+
+    - name: Pull the mrunalsh/medicure-app Docker image
+      docker_image:
+        name: mrunalsh/medicure-app:1.0
+        source: pull
+
+    - name: Run the mrunalsh/medicure-app Docker container
+      docker_container:
+        name: medicure-app
+        image: mrunalsh/medicure-app:1.0
+        state: started
+        restart_policy: always
+        ports:
+          - "8082:8082"

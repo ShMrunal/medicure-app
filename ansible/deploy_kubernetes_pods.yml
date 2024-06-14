@@ -1,0 +1,45 @@
+- name: Deploy Kubernetes Cluster
+  hosts: master
+  become: yes
+  tasks:
+    - name: Initialize the Kubernetes cluster
+      command: kubeadm init --pod-network-cidr=10.244.0.0/16
+      register: kubeadm_init_output
+      ignore_errors: yes
+
+    - name: Create .kube directory for the admin user
+      file:
+        path: /home/{{ ansible_user }}/.kube
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Copy admin.conf to user's kube config
+      command: >
+        cp /etc/kubernetes/admin.conf /home/{{ ansible_user }}/.kube/config
+      args:
+        creates: /home/{{ ansible_user }}/.kube/config
+      become_user: "{{ ansible_user }}"
+
+    - name: Set ownership of the kube config
+      file:
+        path: /home/{{ ansible_user }}/.kube/config
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+
+    - name: Install Flannel CNI
+      command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+
+    - name: Get join command
+      command: kubeadm token create --print-join-command
+      register: kubeadm_join_command
+
+- name: Join worker nodes to the Kubernetes cluster
+  hosts: workers
+  become: yes
+  tasks:
+    - name: Join the Kubernetes cluster
+      command: "{{ hostvars['master'].kubeadm_join_command.stdout }}"
+      ignore_errors: yes
